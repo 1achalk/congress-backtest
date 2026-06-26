@@ -1,0 +1,11 @@
+.env
+.venv/
+data/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# local-only: AI working brief, superseded probe, and tooling cruft
+CLAUDE.md
+probe_depth.py
+.claude/
