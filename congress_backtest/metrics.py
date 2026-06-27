@@ -5,7 +5,7 @@ import numpy as np
 
 def annualized_return(returns, periods_per_year=252):
     """
-    Design decisions: README D5 (CAGR via compounding wealth path).
+    Design decisions: README M1 (geometric CAGR off the compounded wealth path).
     """
     G = (1 + returns).prod()
     Y = len(returns)/periods_per_year
@@ -15,7 +15,7 @@ def annualized_return(returns, periods_per_year=252):
 
 def annualized_vol(returns, periods_per_year=252):
     """
-    Design decisions: README D4 (ddof), D5 (sqrt-time scaling).
+    Design decisions: README M1 (sqrt-time scaling), M2 (sample std, ddof=1).
     """
     daily_vol = returns.std(ddof=1)
     return daily_vol * (periods_per_year)**(1/2)
@@ -23,7 +23,7 @@ def annualized_vol(returns, periods_per_year=252):
 
 def sharpe_ratio(returns, rf_annual=0.0, periods_per_year=252):
     """
-    Design decisions: README D5, D6 (risk-free rate handling).
+    Design decisions: README M1 (annualization), M3 (risk-free rate handling).
     """
     rf_daily = (1+ rf_annual)**(1/periods_per_year) - 1
     excess = returns - rf_daily
@@ -40,7 +40,7 @@ def sharpe_ratio(returns, rf_annual=0.0, periods_per_year=252):
 
 def sortino_ratio(returns, rf_annual=0.0, periods_per_year=252):
     """
-    Design decisions: README D7 (downside deviation definition).
+    Design decisions: README M3 (risk-free), M4 (total-N downside deviation).
     """
     rf_daily = (1+ rf_annual)**(1/periods_per_year) - 1
     excess = returns - rf_daily
@@ -60,7 +60,7 @@ def max_drawdown(returns):
     """
     Returns dict: {depth, peak_date, trough_date, recovery_date}
     recovery_date is None if wealth never recovers to the prior peak.
-    Design decisions: README D8 (compounding vs additive wealth path).
+    Design decisions: README M5 (drawdown on the compounded wealth path).
     """
 
     wealth = (1+returns).cumprod()
@@ -89,7 +89,7 @@ def max_drawdown(returns):
 def rolling_volatility(returns, window=21, periods_per_year=252):
     """
     Returns a Series of rolling annualized volatility.
-    Design decisions: README D4 (ddof=1), D5 (sqrt-time scaling).
+    Design decisions: README M1 (sqrt-time scaling), M2 (sample std, ddof=1).
     """
     rolling_vol = returns.rolling(window).std(ddof=1)
     return rolling_vol * np.sqrt(periods_per_year)

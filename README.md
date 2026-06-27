@@ -209,6 +209,37 @@ stocks-only) results are kept underneath for comparison.
 - **D10** SPY buy-and-hold, total-return (matching D4), over the identical test
   window. Pulled via the same `curl_cffi` Yahoo path.
 
+### Metrics design decisions (M1–M5, `metrics.py`)
+
+The performance metrics are a small standalone library; its own choices are
+numbered M-series to keep them distinct from the backtest decisions above.
+
+- **M1 — annualization.** Volatility scales by `sqrt(252)` (returns treated as
+  serially uncorrelated for scaling); the headline return is the geometric CAGR off
+  the compounded wealth path `prod(1+r)^(252/n) - 1`, not the arithmetic mean —
+  CAGR is what an investor actually realizes and avoids the upward bias of
+  arithmetic averaging on a volatile series.
+- **M2 — sample standard deviation (`ddof=1`).** Volatility uses the unbiased
+  sample estimator; on ~1,150 daily observations the ddof choice is immaterial but
+  the sample estimator is the defensible default.
+- **M3 — risk-free handling.** An annual rf is converted to a daily rate
+  geometrically, `(1+rf)^(1/252) - 1`, then Sharpe/Sortino are the annualized mean
+  excess return over the annualized vol of excess. The backtest passes its
+  time-varying FRED 3-month T-bill (D7) in as excess returns directly, so the
+  metric sees the real daily rf rather than a flat scalar.
+- **M4 — Sortino downside deviation: total-N convention.** The downside deviation
+  squares negative excess returns, zeros the positives, and divides by the *total*
+  number of observations (not just the count of down days), i.e.
+  `sqrt(mean(min(excess,0)^2))`. This is the Sortino/Satchell convention; it treats
+  the absence of downside as genuinely good rather than dropping those days, so a
+  strategy with few but deep losses is penalized more than one with many shallow
+  ones at the same mean.
+- **M5 — max drawdown on the compounded wealth path.** Drawdown is computed on
+  `cumprod(1+r)` (multiplicative wealth), not an additive sum, and the function
+  returns the full episode — depth plus peak, trough, and recovery dates
+  (`recovery_date=None` when wealth never reclaims the prior peak) — so the headline
+  −MaxDD can be tied back to a specific drawdown window.
+
 ### Results (v2, out-of-sample test window 2021-11 → 2026-06, ~4.5y, net of 5 bps)
 
 | cohort | scope | basis | net total | CAGR | Sharpe | MaxDD |
