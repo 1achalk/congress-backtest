@@ -106,13 +106,16 @@ def fetch_spy(calendar):
 
 
 def stats(daily_ret, daily_rf):
+    # metrics.sharpe_ratio/sortino_ratio take an annual scalar rf; pass the real
+    # time-varying FRED daily rf by subtracting it here and leaving rf_annual=0.
+    excess = daily_ret - daily_rf
     return {
         "total_return": (1.0 + daily_ret).prod() - 1.0,
         "cagr": metrics.annualized_return(daily_ret),
         "ann_vol": metrics.annualized_vol(daily_ret),
-        "sharpe": metrics.sharpe(daily_ret, daily_rf),
-        "sortino": metrics.sortino(daily_ret, daily_rf),
-        "max_dd": metrics.max_drawdown(daily_ret),
+        "sharpe": metrics.sharpe_ratio(excess),
+        "sortino": metrics.sortino_ratio(excess),
+        "max_dd": metrics.max_drawdown(daily_ret)["depth"],
     }
 
 

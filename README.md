@@ -287,4 +287,6 @@ selection signal; ~4.5y reverses it.
   observations); the absolute return level has ~±10% sensitivity to artifact
   handling, but every relative conclusion (vs SPY, selection, options, lag) is
   robust to it.
-- `metrics.py` is a placeholder stand-in for Aidan's Sharpe/Sortino/MDD lib.
+- `metrics.py` is a standalone Sharpe/Sortino/MDD library (CAGR, annualized vol,
+  Sharpe, Sortino with total-N downside deviation, full max-drawdown path with
+  peak/trough/recovery dates).

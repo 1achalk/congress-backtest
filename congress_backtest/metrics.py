@@ -1,42 +1,95 @@
-"""
-Performance metrics: Sharpe, Sortino, max drawdown.
-
-PLACEHOLDER -- the brief says this module imports Aidan's separate metrics lib and
-to "assume it exists." It doesn't exist in this repo yet, and backtest.py needs the
-numbers to produce the four-way table, so these are minimal, correct stand-in
-implementations. Swap them for Aidan's lib by re-pointing the imports; the
-signatures (daily return Series in, scalar out) are what backtest.py depends on.
-"""
+# core risk-adjusted performance metrics
+# all functions take a pd.Series of daily returns
 
 import numpy as np
 
-TRADING_DAYS_PER_YEAR = 252
+def annualized_return(returns, periods_per_year=252):
+    """
+    Design decisions: README D5 (CAGR via compounding wealth path).
+    """
+    G = (1 + returns).prod()
+    Y = len(returns)/periods_per_year
+    g  = G**(1/Y) - 1
+    return g
 
 
-def annualized_return(daily_ret):
-    eq = (1.0 + daily_ret).prod()
-    yrs = len(daily_ret) / TRADING_DAYS_PER_YEAR
-    return eq ** (1.0 / yrs) - 1.0 if yrs > 0 else np.nan
+def annualized_vol(returns, periods_per_year=252):
+    """
+    Design decisions: README D4 (ddof), D5 (sqrt-time scaling).
+    """
+    daily_vol = returns.std(ddof=1)
+    return daily_vol * (periods_per_year)**(1/2)
 
 
-def annualized_vol(daily_ret):
-    return daily_ret.std() * np.sqrt(TRADING_DAYS_PER_YEAR)
+def sharpe_ratio(returns, rf_annual=0.0, periods_per_year=252):
+    """
+    Design decisions: README D5, D6 (risk-free rate handling).
+    """
+    rf_daily = (1+ rf_annual)**(1/periods_per_year) - 1
+    excess = returns - rf_daily
+
+    num = excess.mean() * periods_per_year
+    denom = annualized_vol(excess, periods_per_year)
+
+    if denom == 0:
+        return np.nan
 
 
-def sharpe(daily_ret, daily_rf):
-    excess = daily_ret - daily_rf
-    sd = excess.std()
-    return (excess.mean() / sd) * np.sqrt(TRADING_DAYS_PER_YEAR) if sd > 0 else np.nan
+    return num/denom
 
 
-def sortino(daily_ret, daily_rf):
-    excess = daily_ret - daily_rf
-    downside = excess[excess < 0]
-    dd = np.sqrt((downside ** 2).mean()) if len(downside) else np.nan
-    return (excess.mean() / dd) * np.sqrt(TRADING_DAYS_PER_YEAR) if dd and dd > 0 else np.nan
+def sortino_ratio(returns, rf_annual=0.0, periods_per_year=252):
+    """
+    Design decisions: README D7 (downside deviation definition).
+    """
+    rf_daily = (1+ rf_annual)**(1/periods_per_year) - 1
+    excess = returns - rf_daily
+    
+    num = excess.mean() * periods_per_year
+    downside = np.minimum(excess, 0)
+    msd =  (downside**2).mean()
+    denom = np.sqrt(msd) * np.sqrt(periods_per_year)
+                                   
+    if denom == 0:
+        return np.nan
+
+    return num / denom
 
 
-def max_drawdown(daily_ret):
-    eq = (1.0 + daily_ret).cumprod()
-    peak = eq.cummax()
-    return (eq / peak - 1.0).min()
+def max_drawdown(returns):
+    """
+    Returns dict: {depth, peak_date, trough_date, recovery_date}
+    recovery_date is None if wealth never recovers to the prior peak.
+    Design decisions: README D8 (compounding vs additive wealth path).
+    """
+
+    wealth = (1+returns).cumprod()
+    running_peak = wealth.cummax()
+    draw_down = (wealth - running_peak) / running_peak
+
+    depth = draw_down.min()
+    if depth == 0:
+        return {'depth': 0.0, 'peak_date': None, 
+            'trough_date': None, 'recovery_date': None}
+
+    trough_date = draw_down.idxmin()
+    peak_date = wealth[:trough_date].idxmax()
+    
+    after_trough = wealth[trough_date:]
+    recovery = after_trough[after_trough >= wealth[peak_date]]
+    if len(recovery) == 0:
+        recovery_date = None
+    else: 
+        recovery_date = recovery.index[0]
+
+    return {"depth": depth, "peak_date": peak_date, 
+            "trough_date" : trough_date, "recovery_date": recovery_date}
+
+
+def rolling_volatility(returns, window=21, periods_per_year=252):
+    """
+    Returns a Series of rolling annualized volatility.
+    Design decisions: README D4 (ddof=1), D5 (sqrt-time scaling).
+    """
+    rolling_vol = returns.rolling(window).std(ddof=1)
+    return rolling_vol * np.sqrt(periods_per_year)
